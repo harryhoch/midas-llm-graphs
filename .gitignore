@@ -4,3 +4,4 @@ notebooks/.ipynb_checkpoints/
 .ipynb_checkpoints
 chroma_langchain_db/*
 chroma_langchain.db/*
+chroma*
