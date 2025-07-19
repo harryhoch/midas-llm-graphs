@@ -109,17 +109,23 @@ system_prompt = (
 )
 
 
+def convert_to_string(examples):
+    res = ""
+    for e in examples:
+        res = res + "example_user: "+e['text']+"\n"
+        res = res + "example_assistant: "+'{'+str(e['response']) +"}\n"
+    return res
+
+
 def get_default_prompt(user_examples:dict={},
     additional_instructions: str = "",
 ) -> ChatPromptTemplate:
 
     example_string = ""
     if user_examples is not None and len(user_examples) > 0:
-        example_string = "Here are some useful examples: "
-        for e in user_examples:
-            e + json.dumps(e)
-            
-    print(example_string)
+        example_string = "Here are some useful examples: " +  convert_to_string(user_examples)
+        
+    #print(example_string)
     
     return ChatPromptTemplate.from_messages(
         [
@@ -235,13 +241,13 @@ def create_unstructured_prompt(
             rel_types_str = str(rel_types)
     else:
         rel_types_str = ""
-    print(".........")
-    print(additional_instructions)
-    print(".........")
+    #print(".........")
+    #print(additional_instructions)
+    #print(".........")
     
-    print(".........")
-    print(user_examples)
-    print(".........")
+    #print(".........")
+    ###print(user_examples)
+    #print(".........")
     base_string_parts = [
         "You are a top-tier algorithm designed for extracting information in "
         "structured formats to build a knowledge graph. Your task is to identify "
@@ -282,16 +288,15 @@ def create_unstructured_prompt(
         "IMPORTANT NOTES:\n- Don't add any explanation and text. ",
         additional_instructions,
     ]
-    print("=====")
-    print(base_string_parts)
-    print("=====")
+    ##print("=====")
+    ##print(base_string_parts)
+    #print("=====")
     system_prompt = "\n".join(filter(None, base_string_parts))
 
     system_message = SystemMessage(content=system_prompt)
     parser = JsonOutputParser(pydantic_object=UnstructuredRelation)
 
     if user_examples is not None:
-        print("setting examples to match user input..")
         examples = user_examples
 
     human_string_parts = [
@@ -798,6 +803,7 @@ class LLMGraphTransformer:
         relationship_properties: Union[bool, List[str]] = False,
         ignore_tool_usage: bool = False,
         user_examples: Optional[Dict] = None,
+        user_examples_structured: Optional[bool]=True,
         additional_instructions: str = "",
     ) -> None:
         # Validate and check allowed relationships input
@@ -810,18 +816,19 @@ class LLMGraphTransformer:
         self.strict_mode = strict_mode
         self.user_examples =user_examples
         self._function_call = not ignore_tool_usage
+        self.user_examples_structured = user_examples_structured
         # Check if the LLM really supports structured output
-        print("self function call is "+str(self._function_call))
+       # print("self function call is "+str(self._function_call))
         if self._function_call:
             try:
                 llm.with_structured_output(_Graph)
             except NotImplementedError:
                 self._function_call = False
-        print("after trying sturctured output. self function call is "+str(self._function_call))
+       # print("after trying sturctured output. self function call is "+str(self._function_call))
         val = user_examples is not None
-        print("val is..."+str(val))
+        #print("val is..."+str(val))
         # remove 2nd clause to avoid forcing to unstructured if we have examples..
-        if not self._function_call or user_examples is not None:
+        if (not self._function_call or user_examples is not None) and user_examples_structured == False :
             if node_properties or relationship_properties:
                 raise ValueError(
                     "The 'node_properties' and 'relationship_properties' parameters "
@@ -837,7 +844,7 @@ class LLMGraphTransformer:
                     "Could not import json_repair python package. "
                     "Please install it with `pip install json-repair`."
                 )
-            print("creating unstructured prompt")
+           # print("creating unstructured prompt")
             prompt = prompt or create_unstructured_prompt(
                 allowed_nodes,
                 allowed_relationships,
@@ -871,10 +878,10 @@ class LLMGraphTransformer:
         Processes a single document, transforming it into a graph document using
         an LLM based on the model's schema and constraints.
         """
-        print("in process_response...")
+       # print("in process_response...")
         text = document.page_content
         raw_schema = self.chain.invoke({"input": text}, config=config)
-        if self._function_call and self and self.user_examples is None:
+        if self._function_call and self and self.user_examples_structured == True:
             raw_schema = cast(Dict[Any, Any], raw_schema)
             nodes, relationships = _convert_to_graph_document(raw_schema)
         else:
@@ -882,31 +889,31 @@ class LLMGraphTransformer:
             relationships = []
             if not isinstance(raw_schema, str):
                 raw_schema = raw_schema.content
-            print("...raw_schema..")
-            print(raw_schema)
+           # print("...raw_schema..")
+           # print(raw_schema)
             parsed_json = self.json_repair.loads(raw_schema)
-            print("...parsed json...")
+           # print("...parsed json...")
             if isinstance(parsed_json, dict):
-                print("converting to list...")
+             #   print("converting to list...")
                 parsed_json = [parsed_json]
-            print("length of parsed json is "+str(len(parsed_json)))
-            for i in range(len(parsed_json)):
-                p = parsed_json[i]
-                print("entry... "+str(i))
+          #  print("length of parsed json is "+str(len(parsed_json)))
+          #  for i in range(len(parsed_json)):
+          #      p = parsed_json[i]
+            #    print("entry... "+str(i))
                 print(type(p))
-                if isinstance(p,dict):
-                    for key,value in p.items():
-                        print(key+": "+str(value))
-                elif isinstance(p,list):
-                    for e in p:
-                        print(e)
-                else:
-                    print("neither dict nor list")
+           #     if isinstance(p,dict):
+           #         for key,value in p.items():
+           #             print(key+": "+str(value))
+           #     elif isinstance(p,list):
+           #         for e in p:
+           #             print(e)
+           #     else:
+           #         print("neither dict nor list")
                                             
 
             ### original code
             for rel in parsed_json[1]:
-                print(str(rel))
+             #   print(str(rel))
                 # Check if mandatory properties are there
                 if (
                     not isinstance(rel, dict)

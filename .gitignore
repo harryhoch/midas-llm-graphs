@@ -5,3 +5,4 @@ notebooks/.ipynb_checkpoints/
 chroma_langchain_db/*
 chroma_langchain.db/*
 chroma*
+lib/__pycache__/llm.cypthon-311.pyc
